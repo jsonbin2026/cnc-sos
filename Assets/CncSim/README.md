@@ -32,6 +32,7 @@ UI 布局由你自行编写；Runtime 层只提供功能装配与事件接口。
 | `Core/Localization/`、`Runtime/UILocalizationBridge.cs` | 92 多语言 |
 | `Core/Theming/`、`UILocalizationBridge` | 93 暗/亮主题 |
 | `Core/Tutorial/` | 94 内置教程 |
+| `Runtime/CncUIFacade.cs` | 1-8 文件/编辑器、15/17 诊断与解释、18-30 刀具毛坯对刀、63-70 分析与手册、84 后处理、94 教程，统一暴露给 UI |
 
 ## 快速开始
 
@@ -75,6 +76,54 @@ float mm = bootstrap.Measurement.DistanceMm;
 bootstrap.Localization.SetLanguage("en-US");
 bootstrap.Localization.ToggleTheme();
 ```
+
+## UI 功能门面（CncUIFacade）
+
+界面层优先通过 `bootstrap.UI`（`CncUIFacade`）访问功能，它把文件、诊断、刀具、毛坯、对刀、
+分析、速查手册、后处理、语言、教程统一暴露：
+
+```csharp
+var ui = bootstrap.UI;
+
+// 文件（1-8）
+ui.NewFile();
+ui.OpenFile(path);
+ui.SaveFile();
+ui.SaveFileAs(path);
+string sharePath = ui.ExportForShare();
+var recent = ui.GetRecentFiles();
+foreach (var s in ui.GetRecoverableSessions()) ui.RecoverSession(s);
+
+// 诊断与解释（15/17）
+var diags = ui.Diagnostics;          // DiagnosticList，含 ErrorCount/WarningCount
+var exp = ui.ExplainLine(lineIndex); // 单行中文/英文解释
+
+// 刀具（18-24）
+ui.AddTool(tool);
+ui.GetOrCreateTool(3).Diameter = 8;
+
+// 毛坯/材料/工件系/对刀（25-30）
+ui.SetBlankSize(new Vec3d(120, 80, 30));
+ui.SetMaterial("steel_1045");
+ui.SetWorkOffset(0, new Vec3d(0, 0, -30)); // G54
+var origin = ui.ComputeOriginFromTouchPoints(x, y, z, probeR, nominal);
+
+// 分析与手册（56-61, 63-70）
+var time = ui.AnalyzeTime();
+var collisions = ui.DetectCollisions();
+var suggestions = ui.OptimizePath();
+var manual = ui.Manual();            // (titleKey, List<CodeInfo>)[]
+
+// 后处理（84）
+ui.UsePostProcessorPreset("fanuc");
+string rewritten = ui.PostProcess("1234");
+
+// 教程（94）
+var session = ui.StartTutorial("getting-started");
+session.Next();
+```
+
+`CncUIFacade` 事件：`DiagnosticsChanged(DiagnosticList)`、`Reanalyzed(ParseResult)`。
 
 ## 事件（供 UI 订阅）
 

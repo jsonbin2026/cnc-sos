@@ -44,6 +44,7 @@ namespace CncSim.Runtime
         public TransparencyController Transparency { get; private set; }
         public UILocalizationBridge Localization { get; private set; }
         public SceneGrid Grid { get; private set; }
+        public CncUIFacade UI { get; private set; }
 
         private void Awake()
         {
@@ -131,6 +132,11 @@ namespace CncSim.Runtime
             Localization = gameObject.GetComponent<UILocalizationBridge>() ?? gameObject.AddComponent<UILocalizationBridge>();
             Localization.Simulator = Simulator;
             Localization.TargetCamera = cam;
+
+            // UI 功能门面
+            UI = gameObject.GetComponent<CncUIFacade>() ?? gameObject.AddComponent<CncUIFacade>();
+            UI.Simulator = Simulator;
+            UI.Localization = Localization;
 
             Entities.RebuildAll();
             Simulator.FrameWorkpiece(InitialView);
