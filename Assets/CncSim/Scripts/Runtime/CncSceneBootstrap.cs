@@ -31,6 +31,10 @@ namespace CncSim.Runtime
         public float GridExtent = 400f;
         public Color BackgroundColor = new Color(0.12f, 0.13f, 0.15f);
 
+        [Header("UI")]
+        [Tooltip("是否自动创建整套 UGUI 界面（CncUIRoot）。关闭则自建 UI。")]
+        public bool CreateUI = true;
+
         [Header("Toolpath")]
         public Core.Trajectory.TrajectoryStyle InitialTrajectoryStyle = Core.Trajectory.TrajectoryStyle.Lines;
 
@@ -159,6 +163,14 @@ namespace CncSim.Runtime
 
             Entities.RebuildAll();
             Simulator.FrameWorkpiece(InitialView);
+
+            // 自动装配界面（用户也可自行挂 CncUIRoot 或自写 UI）
+            if (CreateUI)
+            {
+                var uiRoot = gameObject.GetComponent<CncSim.Runtime.UI.CncUIRoot>()
+                             ?? gameObject.AddComponent<CncSim.Runtime.UI.CncUIRoot>();
+                uiRoot.Bootstrap = this;
+            }
         }
 
         private Light FindLight()

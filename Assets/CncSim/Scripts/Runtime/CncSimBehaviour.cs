@@ -38,6 +38,13 @@ namespace CncSim.Runtime
         public CncSimulator Sim { get; private set; }
         public int CurrentToolNumber { get; private set; } = 1;
 
+        /// <summary>选择当前刀具并刷新三维刀具模型。</summary>
+        public void SelectTool(int number)
+        {
+            CurrentToolNumber = number;
+            Entities?.SetToolNumber(number);
+        }
+
         /// <summary>仿真进度变化（0-1）。</summary>
         public event Action<double> ProgressChanged;
         /// <summary>状态变化。</summary>

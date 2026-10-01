@@ -82,8 +82,34 @@ bootstrap.Localization.SetLanguage("en-US");
 bootstrap.Localization.ToggleTheme();
 ```
 
-## UI 功能门面（CncUIFacade）
+## 自带 UGUI 界面（CncUIRoot）
 
+`CncSceneBootstrap` 默认 `CreateUI = true`，会在运行时用代码生成一整套自适应 UGUI 界面，
+无需任何 Prefab，横屏/竖屏自适应（CanvasScaler 参考分辨率 1280x720）。挂上 bootstrap 即可看到：
+
+- 顶栏：标题、机床类型、语言（中文/EN）、主题切换
+- 左侧标签栏 + 可折叠面板区：文件、仿真、刀具、毛坯、分析、场景、录制/媒体、项目、教程、手册
+- 底部播放条：停止/单步/播放/从头、速度滑杆、进度滑条、坐标与状态读数
+- 右侧浮动视图控件：俯/前/侧/等轴测、缩放、适配
+
+```csharp
+// 关闭自带 UI，改用你自己写的界面
+bootstrap.CreateUI = false;
+
+// 或手动挂载并指定
+var root = gameObject.AddComponent<CncSim.Runtime.UI.CncUIRoot>();
+root.Bootstrap = bootstrap;
+root.DefaultTab = CncSim.Runtime.UI.CncUIRoot.PanelId.Simulation;
+```
+
+界面元素与功能对照：文件面板（1-8）、仿真面板（45-55, 85-90）、刀具面板（18-24）、
+毛坯面板（25-30）、分析面板（56-70）、场景面板（32-44, 80）、媒体面板（51/62/75/76）、
+项目面板（77）、教程面板（94）、手册面板（68-69）。
+
+自定义扩展：继承 `CncSim.Runtime.UI.CncUiPanel`，实现 `Build()`，通过 `Ctx.Facade` 访问功能、
+`Section/Btn/Chk/Sld` 组合控件；在 `CncUIRoot.CreatePanel` 里注册即可。
+
+## UI 功能门面（CncUIFacade）
 界面层优先通过 `bootstrap.UI`（`CncUIFacade`）访问功能，它把文件、诊断、刀具、毛坯、对刀、
 分析、速查手册、后处理、语言、教程统一暴露：
 
@@ -193,3 +219,30 @@ var parts = Simulator.Entities;      // RotaryTableTransform / SwivelHeadTransfo
 截面视图要求 Shader 读取 `_ClipPlane`（float4：xyz 法线、w 距离）与
 `_ClipEnabled`（0/1）。默认会尝试 Standard，如需真正的剖切效果，请在你的 Shader 中做
 `clip(dot(worldPos, _ClipPlane.xyz) - _ClipPlane.w)`。
+
+## 导出 Android APK
+
+本工程是 Unity 工程，APK 需在装有 Unity Editor + Android 模块的机器上导出（CI 或本地）。
+本仓库/沙箱环境没有 Unity 与 Android SDK，无法直接产出 APK。步骤如下：
+
+1. Unity Hub 里为当前 Unity 版本安装 `Android Build Support`（含 SDK & NDK、OpenJDK）。
+2. 打开工程，`File > Build Settings`，Platform 选 `Android`，点 `Switch Platform`。
+3. `Player Settings`：
+   - `Company Name` / `Product Name`
+   - `Other Settings > Scripting Backend` 选 `IL2CPP`
+   - `Target Architectures` 勾 `ARM64`（Google Play 必需），可加 `ARMv7`
+   - `Minimum API Level` 建议 24 及以上
+   - `Orientation`：按需选 Landscape / Portrait / Auto Rotation（UI 已自适应）
+4. 场景列表加入包含 `CncSceneBootstrap` 的场景：`Add Open Scenes`。
+5. `Build` 生成 APK，或勾 `Build App Bundle (Google Play)` 出 AAB。
+6. 安装到设备：`adb install -r yourapp.apk`。
+
+命令行（可选，需设置好 Unity 与 Android SDK 环境变量）：
+
+```bash
+Unity -quit -batchmode -projectPath /path/to/project \
+  -executeMethod BuildScript.BuildAndroid -logFile build.log
+```
+
+注意：TextMeshPro 需先导入 `Window > TextMeshPro > Import TMP Essential Resources`，
+中文字体需生成包含中文字形的 TMP Font Asset 并在 `TMP_Settings` 里设为默认，否则中文会显示为方块。
