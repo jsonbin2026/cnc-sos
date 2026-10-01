@@ -461,6 +461,13 @@ namespace CncSim.Core.Localization
             { "ui.media.sim_save", "保存录制" },
             { "ui.media.sim_load", "加载录制" },
 
+            // ---- 代码编辑器 ----
+            { "ui.editor.toggle", "代码编辑器" },
+            { "ui.editor.shown", "已打开代码编辑器" },
+            { "ui.editor.hidden", "已关闭代码编辑器" },
+            { "ui.editor.placeholder", "选中一行后在此编辑" },
+            { "ui.editor.apply", "应用" },
+
             // ---- 项目面板 ----
             { "ui.project.name", "项目名称" },
             { "ui.project.create", "新建项目" },
@@ -954,6 +961,13 @@ namespace CncSim.Core.Localization
             { "ui.media.sim_replay", "Replay" },
             { "ui.media.sim_save", "Save recording" },
             { "ui.media.sim_load", "Load recording" },
+
+            // ---- Code editor ----
+            { "ui.editor.toggle", "Code editor" },
+            { "ui.editor.shown", "Code editor opened" },
+            { "ui.editor.hidden", "Code editor closed" },
+            { "ui.editor.placeholder", "Select a line, then edit here" },
+            { "ui.editor.apply", "Apply" },
 
             // ---- Project panel ----
             { "ui.project.name", "Project name" },

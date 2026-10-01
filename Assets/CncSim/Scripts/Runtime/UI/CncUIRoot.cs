@@ -72,6 +72,8 @@ namespace CncSim.Runtime.UI
         private RectTransform _viewControls;
         private RectTransform _panelRoot;
         private bool _panelVisible;
+        private GCodeEditorView _editorView;
+        private Button _editorButton;
 
         private readonly Dictionary<PanelId, CncUiPanel> _panels = new Dictionary<PanelId, CncUiPanel>();
         private readonly Dictionary<PanelId, Button> _tabButtons = new Dictionary<PanelId, Button>();
@@ -113,6 +115,7 @@ namespace CncSim.Runtime.UI
             BuildBottomBar();
             BuildViewControls();
             BuildTooltip();
+            BuildEditorView();
 
             if (Context.Localization != null)
             {
@@ -227,12 +230,44 @@ namespace CncSim.Runtime.UI
             _langText = langBtn.GetComponentInChildren<TextMeshProUGUI>();
             RegisterTopText(_langText, null, LangCode);
 
+            _editorButton = UIFactory.IconButton(bar.transform, "</>", Context.Theme, ToggleEditor, 30f,
+                Context.T("ui.editor.toggle"));
+            UIFactory.Size(_editorButton.gameObject, minW: 44f, prefW: 44f, flexW: 0f);
+
             var themeBtn = UIFactory.IconButton(bar.transform, "◐", Context.Theme, () =>
             {
                 Context.Facade.ToggleTheme();
                 SetStatus(Context.T("ui.status.theme_toggled"));
             }, 30f);
             UIFactory.Size(themeBtn.gameObject, minW: 30f, prefW: 30f, flexW: 0f);
+        }
+
+        private void ToggleEditor()
+        {
+            if (_editorView == null) return;
+            bool show = !_editorView.gameObject.activeSelf;
+            _editorView.SetVisible(show);
+            var img = _editorButton != null ? _editorButton.targetGraphic as Image : null;
+            if (img != null) img.color = show ? Context.Theme.Accent : Context.Theme.Button;
+            SetStatus(Context.T(show ? "ui.editor.shown" : "ui.editor.hidden"));
+        }
+
+        private void BuildEditorView()
+        {
+            var go = new GameObject("GCodeEditor", typeof(RectTransform));
+            go.transform.SetParent(_canvasRoot, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            _editorView = go.AddComponent<GCodeEditorView>();
+            _editorView.Context = Context;
+            _editorView.Facade = Context.Facade;
+            _editorView.Theme = Context.Theme;
+            _editorView.Build(rt, Context.Theme);
+            _editorView.Bind(Context.Sim);
+            _editorView.SetVisible(false);
         }
 
         private string LangCode()
@@ -692,12 +727,18 @@ namespace CncSim.Runtime.UI
                 Destroy(_canvasRoot.GetChild(i).gameObject);
 
             Context.Theme = CncUiTheme.From(Context.Localization?.Theme);
+            if (_editorView != null)
+            {
+                Destroy(_editorView);
+                _editorView = null;
+            }
             BuildTopBar();
             BuildTabRail();
             BuildPanelHost();
             BuildBottomBar();
             BuildViewControls();
             BuildTooltip();
+            BuildEditorView();
             SelectTab(tab);
             UpdateMachineLabel();
         }
