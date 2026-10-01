@@ -321,6 +321,31 @@ namespace CncSim.Core.Localization
             { "material.plastic_abs", "ABS 塑料" },
             { "material.wood", "木材" },
 
+            // ---- 录制/回放/导入/项目 ui.* ----
+            { "ui.record.start", "开始录制" },
+            { "ui.record.stop", "停止录制" },
+            { "ui.record.replay", "回放" },
+            { "ui.record.pause", "暂停回放" },
+            { "ui.record.save", "保存录制" },
+            { "ui.record.load", "加载录制" },
+            { "ui.import.model", "导入模型" },
+            { "ui.import.stl", "导入 STL 模型" },
+            { "ui.import.step", "导入 STEP 模型" },
+            { "ui.import.gltf_fbx", "导入 glTF/FBX 模型" },
+            { "ui.import.machine_fixture", "导入机床/夹具模型" },
+            { "ui.capture.screenshot", "截图保存" },
+            { "ui.capture.video", "导出仿真视频" },
+            { "ui.project.manager", "项目管理" },
+            { "ui.project.new", "新建项目" },
+            { "ui.project.duplicate", "复制项目" },
+            { "ui.project.delete", "删除项目" },
+            { "ui.project.rename", "重命名项目" },
+
+            // ---- 导入诊断 diag.import.* ----
+            { "diag.import.unsupported", "不支持的模型格式：{0}" },
+            { "diag.import.requires_unity", "该格式需在 Unity 层导入（glTF/FBX/STEP）" },
+            { "diag.import.failed", "模型导入失败：{0}" },
+
             // ---- 教程与帮助 tutorial.* ----
             { "tutorial.getting_started.title", "快速上手" },
             { "tutorial.getting_started.desc", "从打开程序到运行仿真的完整流程" },
@@ -650,6 +675,30 @@ namespace CncSim.Core.Localization
             { "material.titanium", "Titanium" },
             { "material.plastic_abs", "ABS plastic" },
             { "material.wood", "Wood" },
+
+            // ---- Recording / import / project ui.* ----
+            { "ui.record.start", "Start recording" },
+            { "ui.record.stop", "Stop recording" },
+            { "ui.record.replay", "Replay" },
+            { "ui.record.pause", "Pause replay" },
+            { "ui.record.save", "Save recording" },
+            { "ui.record.load", "Load recording" },
+            { "ui.import.model", "Import model" },
+            { "ui.import.stl", "Import STL model" },
+            { "ui.import.step", "Import STEP model" },
+            { "ui.import.gltf_fbx", "Import glTF/FBX model" },
+            { "ui.import.machine_fixture", "Import machine/fixture model" },
+            { "ui.capture.screenshot", "Save screenshot" },
+            { "ui.capture.video", "Export simulation video" },
+            { "ui.project.manager", "Project manager" },
+            { "ui.project.new", "New project" },
+            { "ui.project.duplicate", "Duplicate project" },
+            { "ui.project.delete", "Delete project" },
+            { "ui.project.rename", "Rename project" },
+
+            { "diag.import.unsupported", "Unsupported model format: {0}" },
+            { "diag.import.requires_unity", "This format must be imported in Unity (glTF/FBX/STEP)" },
+            { "diag.import.failed", "Model import failed: {0}" },
 
             // ---- Tutorials tutorial.* ----
             { "tutorial.getting_started.title", "Getting started" },

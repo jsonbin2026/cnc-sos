@@ -45,6 +45,9 @@ namespace CncSim.Runtime
         public UILocalizationBridge Localization { get; private set; }
         public SceneGrid Grid { get; private set; }
         public CncUIFacade UI { get; private set; }
+        public RecordReplayController RecordReplay { get; private set; }
+        public CaptureService Capture { get; private set; }
+        public ModelImportService ModelImport { get; private set; }
 
         private void Awake()
         {
@@ -135,8 +138,24 @@ namespace CncSim.Runtime
 
             // UI 功能门面
             UI = gameObject.GetComponent<CncUIFacade>() ?? gameObject.AddComponent<CncUIFacade>();
+
+            // 录制/回放
+            RecordReplay = gameObject.GetComponent<RecordReplayController>() ?? gameObject.AddComponent<RecordReplayController>();
+            RecordReplay.Simulator = Simulator;
+
+            // 截图/视频
+            Capture = gameObject.GetComponent<CaptureService>() ?? gameObject.AddComponent<CaptureService>();
+            Capture.TargetCamera = cam;
+
+            // 模型导入
+            ModelImport = gameObject.GetComponent<ModelImportService>() ?? gameObject.AddComponent<ModelImportService>();
+
             UI.Simulator = Simulator;
             UI.Localization = Localization;
+            UI.RecordReplay = RecordReplay;
+            UI.Capture = Capture;
+            UI.ModelImport = ModelImport;
+            UI.Initialize();
 
             Entities.RebuildAll();
             Simulator.FrameWorkpiece(InitialView);

@@ -15,7 +15,7 @@ UI 布局由你自行编写；Runtime 层只提供功能装配与事件接口。
 | `Core/Parsing/` | 9-17 解析、G/M 指令、坐标提取、运动队列、插补、错误检查、超程、单行解释 |
 | `Core/Tooling/`、`Core/Stock/` | 18-30 刀具库、类型/直径/圆弧/长度/伸出/T 号、毛坯尺寸形状材料、G54-G59、夹具、对刀 |
 | `Core/Kinematics/`、`Core/Parsing/MachineProfile.cs`、`Core/MachineModel/` | 31、32-36、81-83 机床类型、运动学、自定义机床、各部件几何 |
-| `Runtime/Scene/SceneEntityRenderer.cs` | 32-36 主轴/工作台/床身/夹具/刀具/毛坯三维模型 |
+| `Runtime/Scene/SceneEntityRenderer.cs` | 32-36 主轴/工作台/床身/夹具/刀具/毛坯三维模型、80 转台/摆头零件 |
 | `Runtime/Rendering/ToolpathRenderer.cs` | 37-38 轨迹实时显示、线框/实体切换 |
 | `Runtime/Camera/CameraRig.cs` | 39-40 多视角、缩放/旋转/平移 |
 | `Runtime/Scene/TransparencyController.cs` | 41 透明度 |
@@ -32,7 +32,12 @@ UI 布局由你自行编写；Runtime 层只提供功能装配与事件接口。
 | `Core/Localization/`、`Runtime/UILocalizationBridge.cs` | 92 多语言 |
 | `Core/Theming/`、`UILocalizationBridge` | 93 暗/亮主题 |
 | `Core/Tutorial/` | 94 内置教程 |
-| `Runtime/CncUIFacade.cs` | 1-8 文件/编辑器、15/17 诊断与解释、18-30 刀具毛坯对刀、63-70 分析与手册、84 后处理、94 教程，统一暴露给 UI |
+| `Core/Recording/`、`Runtime/Recording/RecordReplayController.cs` | 51、62 仿真录制、回放、加工结果保存/载入 |
+| `Core/Import/`、`Runtime/Import/ModelImportService.cs` | 71-74 导入 STL/OBJ（Core 解析）、STEP/glTF/FBX（Unity 资源管线）、毛坯/夹具应用 |
+| `Runtime/Capture/CaptureService.cs` | 75-76 导出视频帧序列、截图 |
+| `Core/Projects/`、`CncUIFacade.Projects` | 77 多项目管理（新建/保存/载入/复制/重命名） |
+| `Core/Kinematics/`、`Core/MachineModel/`、`SceneEntityRenderer.UpdateRotaryPose` | 80 五轴仿真（双转台/摆头+转台/双摆头、转台与摆头零件联动） |
+| `Runtime/CncUIFacade.cs` | 1-8 文件/编辑器、15/17 诊断与解释、18-30 刀具毛坯对刀、51/62 录制回放、63-70 分析与手册、71-80 导入/项目/多轴、84 后处理、94 教程，统一暴露给 UI |
 
 ## 快速开始
 
@@ -121,6 +126,33 @@ string rewritten = ui.PostProcess("1234");
 // 教程（94）
 var session = ui.StartTutorial("getting-started");
 session.Next();
+
+// 录制/回放（51, 62）
+ui.StartRecording();
+ui.StopRecording();
+ui.SaveRecording();                  // 保存到 persistentDataPath/Recordings
+ui.LoadRecording(path);
+ui.StartReplay();
+ui.SeekReplay(0.5);                  // 进度 0-1
+ui.SetReplaySpeed(2f);
+
+// 截图 / 视频（75, 76）
+string png = ui.SaveScreenshot();
+ui.StartVideoCapture();
+ui.StopVideoCapture();
+
+// 模型导入（71-74）
+var model = ui.ImportModel(path, ModelRole.Workpiece); // STL/OBJ 直接解析
+ui.ImportModelFromGameObject(fbxRoot, ModelRole.Fixture); // FBX/glTF 走 Unity 资源
+
+// 多项目管理（77）
+var project = ui.CreateProject("Part A");
+ui.SaveToProject(project);           // 把当前 GCode/毛坯/刀具写入项目并落盘
+ui.LoadFromProject(project);         // 载入项目到当前仿真
+
+// 五轴/多轴机床（80）
+ui.SetMachineType(MachineType.FiveAxis, FiveAxisKinematics.HeadTable);
+var parts = Simulator.Entities;      // RotaryTableTransform / SwivelHeadTransform 随 A/B/C 角联动
 ```
 
 `CncUIFacade` 事件：`DiagnosticsChanged(DiagnosticList)`、`Reanalyzed(ParseResult)`。

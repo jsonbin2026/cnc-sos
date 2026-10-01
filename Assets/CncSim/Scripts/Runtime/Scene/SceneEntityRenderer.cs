@@ -39,9 +39,12 @@ namespace CncSim.Runtime
         public Transform TableTransform { get; private set; }
         public Transform SpindleTransform { get; private set; }
         public Transform ToolTransform { get; private set; }
+        public Transform RotaryTableTransform { get; private set; }
+        public Transform SwivelHeadTransform { get; private set; }
 
         private GameObject _root;
         private MeshFilter _tableFilter, _spindleFilter, _baseFilter, _columnFilter;
+        private MeshFilter _rotaryFilter, _swivelFilter;
         private MeshFilter _blankFilter, _fixtureFilter, _toolFilter, _removalFilter;
         private Mesh _blankMesh, _removalMesh, _toolMesh, _fixtureMesh;
 
@@ -63,6 +66,10 @@ namespace CncSim.Runtime
             SpindleTransform = CreatePart(machine.transform, "Spindle", MachineMaterial ?? DefaultMaterial(new Color(0.4f, 0.42f, 0.5f)), out _spindleFilter);
             CreatePart(machine.transform, "Base", MachineMaterial ?? DefaultMaterial(new Color(0.3f, 0.31f, 0.34f)), out _baseFilter);
             CreatePart(machine.transform, "Column", MachineMaterial ?? DefaultMaterial(new Color(0.3f, 0.31f, 0.34f)), out _columnFilter);
+            RotaryTableTransform = CreatePart(machine.transform, "RotaryTable", MachineMaterial ?? DefaultMaterial(new Color(0.45f, 0.47f, 0.52f)), out _rotaryFilter);
+            SwivelHeadTransform = CreatePart(machine.transform, "SwivelHead", MachineMaterial ?? DefaultMaterial(new Color(0.45f, 0.47f, 0.52f)), out _swivelFilter);
+            RotaryTableTransform.gameObject.SetActive(false);
+            SwivelHeadTransform.gameObject.SetActive(false);
 
             var workpiece = new GameObject("Workpiece");
             workpiece.transform.SetParent(_root.transform, false);
@@ -108,6 +115,22 @@ namespace CncSim.Runtime
             SetMesh(_tableFilter, parts.TableMesh);
             SetMesh(_spindleFilter, parts.SpindleMesh);
 
+            if (parts.HasRotaryTable)
+            {
+                SetMesh(_rotaryFilter, parts.RotaryTableMesh);
+                RotaryTableTransform.localPosition = MeshBuilder.ToUnity(parts.RotaryTablePivot);
+                RotaryTableTransform.gameObject.SetActive(ShowMachine);
+            }
+            else RotaryTableTransform.gameObject.SetActive(false);
+
+            if (parts.HasSwivelHead)
+            {
+                SetMesh(_swivelFilter, parts.SwivelHeadMesh);
+                SwivelHeadTransform.localPosition = MeshBuilder.ToUnity(parts.SwivelHeadPivot);
+                SwivelHeadTransform.gameObject.SetActive(ShowMachine);
+            }
+            else SwivelHeadTransform.gameObject.SetActive(false);
+
             AssignMesh(ref _blankMesh, _blankFilter, sim.BuildBlankMesh());
             AssignMesh(ref _fixtureMesh, _fixtureFilter, sim.Fixture.BuildMesh());
 
@@ -116,6 +139,24 @@ namespace CncSim.Runtime
             AssignMesh(ref _toolMesh, _toolFilter, MachineModelBuilder.BuildToolMesh(tool));
 
             ApplyVisibility();
+        }
+
+        /// <summary>更新旋转轴（4/5 轴机床）姿态（功能 80）。</summary>
+        public void UpdateRotaryPose(AxisVector axes)
+        {
+            // CNC 约定：A 绕 X、B 绕 Y、C 绕 Z（Core 为 Z 轴向上）。
+            // Core→Unity 轴映射为 (X,Y,Z)→(X,Z,Y)，故旋转轴映射：
+            //   Core X → Unity X，Core Y → Unity Z，Core Z → Unity Y
+            if (RotaryTableTransform != null && RotaryTableTransform.gameObject.activeSelf)
+            {
+                // 转台：TableTable 机型主转轴为 C（绕 Core Z → Unity Y）
+                RotaryTableTransform.localRotation = Quaternion.Euler(0f, (float)axes.C, 0f);
+            }
+            if (SwivelHeadTransform != null && SwivelHeadTransform.gameObject.activeSelf)
+            {
+                // 摆动头：绕 Core Y → Unity Z 轴摆动 B 角，叠加 A 角绕 Unity X
+                SwivelHeadTransform.localRotation = Quaternion.Euler((float)axes.A, 0f, (float)axes.B);
+            }
         }
 
         /// <summary>更新材料去除网格（功能 54 表面实时更新）。</summary>

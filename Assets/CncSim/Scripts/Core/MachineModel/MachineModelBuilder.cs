@@ -41,7 +41,56 @@ namespace CncSim.Core.MachineModel
             // 主轴头/滑枕：可沿 Z 移动，原点在主轴端面中心
             parts.SpindleMesh = BuildSpindle();
 
+            BuildMultiAxisParts(parts, travel);
+
             return parts;
+        }
+
+        private void BuildMultiAxisParts(MachineParts parts, Aabb travel)
+        {
+            var type = _machine.Type;
+            var kin = _machine.Kinematics;
+            if (type != MachineType.FourAxis && type != MachineType.FiveAxis && kin == FiveAxisKinematics.None)
+                return;
+
+            bool tableRotary = kin != FiveAxisKinematics.HeadHead;
+            bool swivelHead = kin == FiveAxisKinematics.HeadTable || kin == FiveAxisKinematics.HeadHead;
+            if (type == MachineType.FourAxis && kin == FiveAxisKinematics.None) tableRotary = true;
+
+            double cx = (travel.Min.X + travel.Max.X) * 0.5;
+            double cy = (travel.Min.Y + travel.Max.Y) * 0.5;
+            double cz = travel.Min.Z - 5;
+
+            if (tableRotary)
+            {
+                // 旋转工作台：枢轴在工作台中心，局部原点即枢轴
+                double r = Math.Min(travel.Max.X - travel.Min.X, travel.Max.Y - travel.Min.Y) * 0.4;
+                r = Math.Max(r, 40);
+                var disc = MeshPrimitives.Cylinder(new Vec3d(0, 0, 0), r, 20, 48);
+                var platter = MeshPrimitives.Cylinder(new Vec3d(0, 0, 10), r * 0.85, 12, 48);
+                parts.RotaryTableMesh = new MeshData();
+                parts.RotaryTableMesh.Append(disc);
+                parts.RotaryTableMesh.Append(platter);
+                parts.RotaryTablePivot = new Vec3d(cx, cy, cz);
+                parts.HasRotaryTable = true;
+            }
+
+            if (swivelHead)
+            {
+                // 摆动头：枢轴在主轴上方，局部原点即枢轴
+                double span = Math.Max(travel.Max.Z - travel.Min.Z, 150) * 0.5;
+                double width = 70;
+                var yoke = new MeshData();
+                yoke.Append(MeshPrimitives.Box(
+                    new Vec3d(-width, -width * 0.5, -width * 0.5),
+                    new Vec3d(width, width * 0.5, width * 0.5)));
+                yoke.Append(MeshPrimitives.Box(
+                    new Vec3d(-20, -20, -span),
+                    new Vec3d(20, 20, 0)));
+                parts.SwivelHeadMesh = yoke;
+                parts.SwivelHeadPivot = new Vec3d(cx, cy, travel.Max.Z);
+                parts.HasSwivelHead = true;
+            }
         }
 
         private MeshData BuildSpindle()
@@ -102,5 +151,17 @@ namespace CncSim.Core.MachineModel
         public MeshData BaseMesh = new MeshData();
         public MeshData ColumnMesh = new MeshData();
         public MeshData SpindleMesh = new MeshData();
+
+        /// <summary>旋转工作台（4 轴 A 轴 / 5 轴 C 轴），枢轴原点在网格局部 (0,0,0)。</summary>
+        public MeshData RotaryTableMesh = new MeshData();
+        /// <summary>摆动头（5 轴 B 轴），枢轴原点在网格局部 (0,0,0)。</summary>
+        public MeshData SwivelHeadMesh = new MeshData();
+        /// <summary>旋转工作台枢轴（机床坐标）。</summary>
+        public Vec3d RotaryTablePivot = Vec3d.Zero;
+        /// <summary>摆动头枢轴（机床坐标）。</summary>
+        public Vec3d SwivelHeadPivot = Vec3d.Zero;
+        /// <summary>是否存在旋转工作台 / 摆动头。</summary>
+        public bool HasRotaryTable;
+        public bool HasSwivelHead;
     }
 }

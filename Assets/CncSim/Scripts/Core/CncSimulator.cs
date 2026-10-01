@@ -101,6 +101,22 @@ namespace CncSim.Core
             IsDirtyDocument = true;
         }
 
+        /// <summary>
+        /// 切换机床配置（功能 80：三轴/四轴/五轴）。
+        /// 重建运动学、校验器与仿真，并强制重新解析当前程序。
+        /// </summary>
+        public void SetMachine(MachineProfile machine)
+        {
+            Machine = machine ?? MachineProfile.Create3Axis();
+            Kinematics = new MachineKinematics(Machine);
+            Validator = new GCodeValidator(Machine, Tools, Blank);
+            if (Program != null)
+            {
+                Simulation.Load(Program, Machine);
+                Parse(force: true);
+            }
+        }
+
         public void SetMaterial(string materialId)
         {
             Material = MaterialDefinition.Find(materialId);

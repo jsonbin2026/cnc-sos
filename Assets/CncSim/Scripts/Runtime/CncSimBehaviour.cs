@@ -151,6 +151,7 @@ namespace CncSim.Runtime
         {
             if (Entities == null || !frame.Valid) return;
             ToolTransformUpdate(frame.Position, frame.ToolDirection);
+            Entities.UpdateRotaryPose(frame.Axes);
         }
 
         /// <summary>按刀尖位置与刀轴方向摆放刀具。</summary>

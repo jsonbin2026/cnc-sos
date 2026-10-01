@@ -6,10 +6,13 @@ using CncSim.Core;
 using CncSim.Core.Analysis;
 using CncSim.Core.Collision;
 using CncSim.Core.CodeEditor;
+using CncSim.Core.Import;
 using CncSim.Core.Localization;
 using CncSim.Core.Optimization;
 using CncSim.Core.Parsing;
 using CncSim.Core.PostProcessing;
+using CncSim.Core.Projects;
+using CncSim.Core.Recording;
 using CncSim.Core.Simulation;
 using CncSim.Core.Stock;
 using CncSim.Core.Tooling;
@@ -35,10 +38,17 @@ namespace CncSim.Runtime
         [Header("References")]
         public CncSimBehaviour Simulator;
         public UILocalizationBridge Localization;
+        public RecordReplayController RecordReplay;
+        public CaptureService Capture;
+        public ModelImportService ModelImport;
 
         [Header("Storage")]
         [Tooltip("最近文件与恢复文件的存储目录（留空使用 persistentDataPath）")]
         public string StorageDirectory;
+
+        [Header("Projects")]
+        [Tooltip("多项目管理目录（留空使用 persistentDataPath）")]
+        public string ProjectDirectory;
 
         [Header("Auto Save")]
         public bool EnableAutoSave = true;
@@ -46,6 +56,7 @@ namespace CncSim.Runtime
         public GCodeFileService FileService { get; private set; }
         public AutoSaveService AutoSave { get; private set; }
         public RecentFilesList RecentFiles => FileService?.RecentFiles;
+        public ProjectManager Projects { get; private set; }
 
         /// <summary>诊断/解释/分析刷新事件（解析完成后触发）。</summary>
         public event Action<ParseResult> Reanalyzed;
@@ -56,19 +67,32 @@ namespace CncSim.Runtime
         {
             if (Simulator == null) Simulator = GetComponent<CncSimBehaviour>();
             if (Localization == null) Localization = GetComponent<UILocalizationBridge>();
+            if (RecordReplay == null) RecordReplay = GetComponent<RecordReplayController>();
+            if (Capture == null) Capture = GetComponent<CaptureService>();
+            if (ModelImport == null) ModelImport = GetComponent<ModelImportService>();
+            Initialize();
+        }
 
+        /// <summary>创建文件/项目服务（幂等）。当组件在运行时被重新绑定引用后可再次调用。</summary>
+        public void Initialize()
+        {
             string dir = string.IsNullOrEmpty(StorageDirectory)
                 ? Path.Combine(Application.persistentDataPath, "CncSim")
                 : StorageDirectory;
             Directory.CreateDirectory(dir);
 
-            FileService = new GCodeFileService(new RecentFilesList(Path.Combine(dir, "recent.txt")));
-            AutoSave = new AutoSaveService(Path.Combine(dir, "recovery"));
+            FileService ??= new GCodeFileService(new RecentFilesList(Path.Combine(dir, "recent.txt")));
+            AutoSave ??= new AutoSaveService(Path.Combine(dir, "recovery"));
             if (Simulator?.Sim != null)
             {
                 AutoSave.Attach(Simulator.Sim.Document);
                 AutoSave.Enabled = EnableAutoSave;
             }
+
+            string projDir = string.IsNullOrEmpty(ProjectDirectory)
+                ? Path.Combine(dir, "Projects")
+                : ProjectDirectory;
+            Projects ??= new ProjectManager(projDir);
         }
 
         private void Update()
@@ -292,5 +316,144 @@ namespace CncSim.Runtime
             Simulator.Sim.CurrentTutorial = session;
             return session;
         }
+
+        // ---------------- 录制/回放（51, 62）----------------
+
+        public SimulationRecorder Recorder => RecordReplay?.Recorder;
+        public bool IsRecording => RecordReplay?.IsRecording ?? false;
+        public bool IsReplaying => RecordReplay?.IsReplaying ?? false;
+
+        public void StartRecording() => RecordReplay?.StartRecording();
+        public void StopRecording() => RecordReplay?.StopRecording();
+        public void StartReplay() => RecordReplay?.StartReplay();
+        public void PauseReplay() => RecordReplay?.PauseReplay();
+        public void StopReplay() => RecordReplay?.StopReplay();
+        public void SeekReplay(double progress) => RecordReplay?.SeekReplay(progress);
+        public void SetReplaySpeed(float speed) => RecordReplay?.SetReplaySpeed(speed);
+
+        /// <summary>保存录制结果（功能 62）。</summary>
+        public bool SaveRecording(string path = null)
+        {
+            if (RecordReplay?.Recorder == null) return false;
+            string p = path ?? Path.Combine(
+                Path.Combine(string.IsNullOrEmpty(StorageDirectory) ? Application.persistentDataPath : StorageDirectory, "Recordings"),
+                "run_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".rec");
+            try
+            {
+                string dir = Path.GetDirectoryName(p);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                RecordReplay.Recorder.Save(p);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("SaveRecording failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        public bool LoadRecording(string path) => RecordReplay?.LoadRecording(path) ?? false;
+
+        // ---------------- 截图 / 视频（75, 76）----------------
+
+        public string SaveScreenshot(string path = null) => Capture?.SaveScreenshot(path);
+        public void StartVideoCapture(string directory = null) => Capture?.StartVideoCapture(directory);
+        public void StopVideoCapture() => Capture?.StopVideoCapture();
+        public bool IsCapturingVideo => Capture != null && Capture.IsRecording;
+
+        // ---------------- 模型导入（71-74）----------------
+
+        public ImportedModel ImportModel(string path, ModelRole role)
+        {
+            var model = ModelImport?.ImportFile(path, role);
+            if (model != null && model.Success) ApplyImportedModel(model, role);
+            return model;
+        }
+
+        public ImportedModel ImportModelFromGameObject(GameObject root, ModelRole role)
+        {
+            var model = ModelImport?.ImportFromGameObject(root, role);
+            if (model != null && model.Success) ApplyImportedModel(model, role);
+            return model;
+        }
+
+        private void ApplyImportedModel(ImportedModel model, ModelRole role)
+        {
+            switch (role)
+            {
+                case ModelRole.Workpiece:
+                    ModelImport.ApplyAsBlank(Simulator, model);
+                    break;
+                case ModelRole.Fixture:
+                    ModelImport.ApplyAsFixture(Simulator, model);
+                    break;
+                default:
+                    // 机床/刀具模型由场景层按 ImportedModel.Bounds 自行摆放
+                    break;
+            }
+        }
+
+        // ---------------- 多项目管理（77）----------------
+
+        public IReadOnlyList<CncProject> ProjectList => Projects.Projects;
+        public CncProject ActiveProject => Projects.Active;
+
+        public CncProject CreateProject(string name = null) => Projects.Create(name);
+
+        /// <summary>把当前仿真状态保存到项目并落盘。</summary>
+        public void SaveToProject(CncProject project)
+        {
+            if (project == null || Simulator?.Sim == null) return;
+            project.GCodeText = Simulator.Sim.Document.Text;
+            project.BlankSize = Simulator.Sim.Blank.Size;
+            project.BlankCenter = Simulator.Sim.Blank.Center;
+            project.BlankShape = Simulator.Sim.Blank.Shape.ToString();
+            project.MaterialId = Simulator.Sim.Material.Id;
+            project.MachineType = Simulator.Sim.Machine.Type.ToString();
+            project.Tools.Clear();
+            foreach (var t in Simulator.Sim.Tools.Tools) project.Tools.Add(t.Clone());
+            Projects.Save(project);
+        }
+
+        /// <summary>把项目载入当前仿真。</summary>
+        public void LoadFromProject(CncProject project)
+        {
+            if (project == null || Simulator?.Sim == null) return;
+            Projects.SetActive(project);
+            if (!string.IsNullOrEmpty(project.GCodeText))
+            {
+                Simulator.Sim.Document.SetText(project.GCodeText, recordUndo: false, markDirty: false);
+            }
+            Simulator.Sim.Blank.Size = project.BlankSize;
+            Simulator.Sim.Blank.Center = project.BlankCenter;
+            if (Enum.TryParse(project.BlankShape, out BlankShape shape)) Simulator.Sim.Blank.Shape = shape;
+            Simulator.Sim.SetMaterial(project.MaterialId);
+            Reparse();
+            Simulator.Entities?.RebuildAll();
+        }
+
+        public bool DeleteProject(CncProject project) => Projects.Delete(project);
+        public CncProject DuplicateProject(CncProject project) => Projects.Duplicate(project);
+        public void RenameProject(CncProject project, string name) => Projects.Rename(project, name);
+
+        // ---------------- 五轴/多轴机床（80）----------------
+
+        /// <summary>切换机床类型并刷新场景。5 轴运动学见 FiveAxisKinematics。</summary>
+        public void SetMachineType(MachineType type, FiveAxisKinematics kinematics = FiveAxisKinematics.None)
+        {
+            MachineProfile profile = type switch
+            {
+                MachineType.FourAxis => MachineProfile.Create4Axis(),
+                MachineType.FiveAxis => MachineProfile.Create5Axis(kinematics == FiveAxisKinematics.None
+                    ? FiveAxisKinematics.TableTable : kinematics),
+                _ => MachineProfile.Create3Axis()
+            };
+            Simulator.Sim.SetMachine(profile);
+            Simulator.Entities?.RebuildAll();
+            Simulator.ToolTransformUpdate(Simulator.Sim.Simulation.Current.Position, Simulator.Sim.Simulation.Current.ToolDirection);
+        }
+
+        public MachineType CurrentMachineType => Simulator.Sim.Machine.Type;
+        public FiveAxisKinematics CurrentKinematics => Simulator.Sim.Machine.Kinematics;
     }
 }
