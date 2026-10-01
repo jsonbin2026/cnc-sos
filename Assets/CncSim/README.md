@@ -244,9 +244,22 @@ var parts = Simulator.Entities;      // RotaryTableTransform / SwivelHeadTransfo
 命令行（可选，需设置好 Unity 与 Android SDK 环境变量）：
 
 ```bash
-Unity -quit -batchmode -projectPath /path/to/project \
-  -executeMethod BuildScript.BuildAndroid -logFile build.log
+Unity -quit -batchmode -nographics -projectPath /path/to/project \
+  -executeMethod CncSim.EditorTools.BuildAndroid.Build -logFile build.log
 ```
 
-注意：TextMeshPro 需先导入 `Window > TextMeshPro > Import TMP Essential Resources`，
-中文字体需生成包含中文字形的 TMP Font Asset 并在 `TMP_Settings` 里设为默认，否则中文会显示为方块。
+产物输出到 `Build/Android/CncSim.apk`（CI 中为 `build/Android/CncSim.apk`）。
+
+### 云端构建（无需本地 Unity）
+仓库内置 GitHub Actions（`.github/workflows/android.yml`），使用 `game-ci/unity-builder`：
+1. 在仓库 `Settings > Secrets and variables > Actions` 添加 `UNITY_LICENSE`（或 `UNITY_EMAIL` + `UNITY_PASSWORD`）
+2. 推送到 `master` 或手动触发 workflow
+3. 构建完成后在 Actions 运行的 `Artifacts` 里下载 `CncSim-Android-APK`
+
+### 工程约定
+- 引擎版本：Unity **2022.3.62f1**（LTS），见 `ProjectSettings/ProjectVersion.txt`
+- 主场景：`Assets/Scenes/Main.unity`，唯一入口物体挂 `CncSceneBootstrap`，运行后自动搭建相机/光照/仿真/UI
+- 构建脚本：`Assets/Editor/BuildAndroid.cs`，构建前会自动导入 TextMeshPro Essential Resources
+
+注意：TextMeshPro 若缺少 Essential Resources，运行期文本无法显示；中文字体需生成包含中文字形的
+TMP Font Asset 并在 `TMP_Settings` 里设为默认，否则中文会显示为方块。
