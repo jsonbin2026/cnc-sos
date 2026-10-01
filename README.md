@@ -26,6 +26,8 @@ ProjectSettings/      Unity 工程设置（2022.3.62f1）
 
 ## 构建 Android APK
 
+完整的手机可照做分步说明见 `当前工作区/BUILD_ANDROID.md`（含云构建、本地 Unity、命令行三种路线与常见问题）。
+
 ### 方式一：云端自动构建（GitHub Actions）
 1. 仓库 `Settings > Secrets and variables > Actions` 添加 Unity 授权：
    - 个人版：`UNITY_LICENSE`（许可证文件内容）
