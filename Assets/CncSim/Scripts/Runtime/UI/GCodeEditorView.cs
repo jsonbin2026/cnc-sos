@@ -25,6 +25,7 @@ namespace CncSim.Runtime.UI
 
         public bool WordWrap = false;
         public int FontSize = 15;
+        public const float FindBarHeight = 40f;
 
         private RectTransform _root;
         private RectTransform _content;
@@ -35,6 +36,11 @@ namespace CncSim.Runtime.UI
         private TextMeshProUGUI _editorHint;
         private int _selectedLine = -1;
         private int _currentLine = -1;
+        private TMP_InputField _findField;
+        private TMP_InputField _replaceField;
+        private TextMeshProUGUI _findResult;
+        private readonly List<int> _matches = new List<int>();
+        private int _matchCursor = -1;
 
         private class Row
         {
@@ -42,6 +48,7 @@ namespace CncSim.Runtime.UI
             public TextMeshProUGUI Number;
             public TextMeshProUGUI Code;
             public Image Background;
+            public Image BreakpointDot;
             public int LineIndex;
         }
 
@@ -61,13 +68,15 @@ namespace CncSim.Runtime.UI
             var bg = _root.gameObject.AddComponent<Image>();
             bg.color = new Color(Theme.Panel.r, Theme.Panel.g, Theme.Panel.b, 0.96f);
 
+            BuildFindBar();
+
             // 代码滚动区
             _scroll = UIFactory.ScrollList(_root, theme, out _content);
             var srt = _scroll.GetComponent<RectTransform>();
             srt.anchorMin = new Vector2(0f, 0f);
             srt.anchorMax = new Vector2(1f, 1f);
             srt.offsetMin = new Vector2(4f, 64f);
-            srt.offsetMax = new Vector2(-4f, -4f);
+            srt.offsetMax = new Vector2(-4f, -FindBarHeight - 4f);
 
             // 底部编辑条
             var bar = UIFactory.Panel(_root, "EditorBar", Theme.PanelAlt);
@@ -100,9 +109,111 @@ namespace CncSim.Runtime.UI
 
         private GCodeDocument _boundDoc;
 
-        private void BindDocument()
+        private void BuildFindBar()
+        {
+            var bar = UIFactory.Panel(_root, "FindBar", Theme.PanelAlt);
+            bar.rectTransform.anchorMin = new Vector2(0f, 1f);
+            bar.rectTransform.anchorMax = new Vector2(1f, 1f);
+            bar.rectTransform.pivot = new Vector2(0.5f, 1f);
+            bar.rectTransform.sizeDelta = new Vector2(-8f, FindBarHeight);
+            bar.rectTransform.anchoredPosition = new Vector2(0f, -2f);
+
+            var h = UIFactory.HStack(bar.rectTransform, 6f, new RectOffset(6, 6, 4, 4));
+
+            _findField = UIFactory.Input(bar.transform, Theme, "", "查找", _ => RunFind(), 30f);
+            UIFactory.Size(_findField.gameObject, flexW: 1f, minH: 30f, prefH: 30f);
+
+            var prev = UIFactory.IconButton(bar.transform, "▲", Theme, () => CycleMatch(-1), 30f, "上一个");
+            var next = UIFactory.IconButton(bar.transform, "▼", Theme, () => CycleMatch(1), 30f, "下一个");
+            _findResult = UIFactory.Label(bar.transform, "", Theme, 12f, true);
+            UIFactory.Size(_findResult.gameObject, minW: 56f, prefW: 56f, flexW: 0f);
+
+            _replaceField = UIFactory.Input(bar.transform, Theme, "", "替换为", null, 30f);
+            UIFactory.Size(_replaceField.gameObject, flexW: 1f, minH: 30f, prefH: 30f);
+
+            var replaceBtn = UIFactory.Button(bar.transform, "替换", Theme, ReplaceCurrent, 30f, false, 13f);
+            UIFactory.Size(replaceBtn.gameObject, minW: 52f, prefW: 52f, flexW: 0f);
+
+            var replaceAllBtn = UIFactory.Button(bar.transform, "全部替换", Theme, ReplaceAll, 30f, false, 13f);
+            UIFactory.Size(replaceAllBtn.gameObject, minW: 68f, prefW: 68f, flexW: 0f);
+        }
+
+        private void RunFind()
+        {
+            _matches.Clear();
+            _matchCursor = -1;
+            var doc = Facade?.Document;
+            string pattern = _findField != null ? _findField.text : null;
+            if (doc == null || string.IsNullOrEmpty(pattern))
+            {
+                UpdateFindResult();
+                return;
+            }
+            foreach (var m in doc.FindAll(pattern))
+                if (!_matches.Contains(m.line)) _matches.Add(m.line);
+            if (_matches.Count > 0) CycleMatch(1);
+            else UpdateFindResult();
+        }
+
+        private void CycleMatch(int dir)
+        {
+            if (_matches.Count == 0) { UpdateFindResult(); return; }
+            _matchCursor = ((_matchCursor + dir) % _matches.Count + _matches.Count) % _matches.Count;
+            int line = _matches[_matchCursor];
+            SelectLine(line);
+            EnsureVisible(line);
+            UpdateFindResult();
+        }
+
+        private void UpdateFindResult()
+        {
+            if (_findResult == null) return;
+            if (_matches.Count == 0)
+                _findResult.text = string.IsNullOrEmpty(_findField?.text) ? "" : "0";
+            else
+                _findResult.text = (_matchCursor + 1) + "/" + _matches.Count;
+        }
+
+        private void ReplaceCurrent()
+        {
+            if (_selectedLine < 0 || Facade?.Document == null) return;
+            string pattern = _findField != null ? _findField.text : null;
+            if (string.IsNullOrEmpty(pattern)) return;
+            string content = Facade.Document.GetLine(_selectedLine);
+            string replaced = ReplaceFirst(content, pattern, _replaceField != null ? _replaceField.text : "");
+            if (replaced != content)
+            {
+                Facade.Document.ReplaceLine(_selectedLine, replaced);
+                Facade.Reparse();
+                RebuildRows();
+                RunFind();
+            }
+        }
+
+        private void ReplaceAll()
         {
             var doc = Facade?.Document;
+            string pattern = _findField != null ? _findField.text : null;
+            if (doc == null || string.IsNullOrEmpty(pattern)) return;
+            int n = doc.ReplaceAll(pattern, _replaceField != null ? _replaceField.text : "");
+            if (n > 0)
+            {
+                Facade.Reparse();
+                RebuildRows();
+                RunFind();
+                Context?.SetStatus?.Invoke("替换 " + n + " 处");
+            }
+        }
+
+        private static string ReplaceFirst(string source, string pattern, string replacement)
+        {
+            int idx = source.IndexOf(pattern, System.StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) return source;
+            return source.Substring(0, idx) + replacement + source.Substring(idx + pattern.Length);
+        }
+
+        private void BindDocument()
+        {            var doc = Facade?.Document;
             if (ReferenceEquals(doc, _boundDoc)) return;
             if (_boundDoc != null) _boundDoc.Changed -= OnDocumentChanged;
             _boundDoc = doc;
@@ -126,6 +237,8 @@ namespace CncSim.Runtime.UI
             {
                 Simulator.FrameUpdated -= OnFrame;
                 Simulator.StateChanged -= OnState;
+                var oldCtrl = Simulator.Sim?.Simulation;
+                if (oldCtrl != null) oldCtrl.BreakpointHit -= OnBreakpointHit;
             }
             Simulator = sim;
             if (Simulator != null)
@@ -133,6 +246,14 @@ namespace CncSim.Runtime.UI
                 Simulator.FrameUpdated += OnFrame;
                 Simulator.StateChanged += OnState;
             }
+            var simCtrl = sim?.Sim?.Simulation;
+            if (simCtrl != null) simCtrl.BreakpointHit += OnBreakpointHit;
+        }
+
+        private void OnBreakpointHit(int line)
+        {
+            EnsureVisible(line);
+            RefreshBreakpoints();
         }
 
         private void OnDestroy()
@@ -148,6 +269,8 @@ namespace CncSim.Runtime.UI
                 Simulator.FrameUpdated -= OnFrame;
                 Simulator.StateChanged -= OnState;
             }
+            var simCtrl = Simulator?.Sim?.Simulation;
+            if (simCtrl != null) simCtrl.BreakpointHit -= OnBreakpointHit;
         }
 
         private void OnDocumentChanged(int version) => RebuildRows();
@@ -195,6 +318,7 @@ namespace CncSim.Runtime.UI
                 _rows.Add(CreateRow(i, doc.GetLine(i)));
 
             RefreshErrorMarks();
+            RefreshBreakpoints();
             HighlightCurrent();
             LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
         }
@@ -209,7 +333,10 @@ namespace CncSim.Runtime.UI
             UIFactory.Stretch(row.Background);
             row.Background.transform.SetAsFirstSibling();
 
-            var h = UIFactory.HStack(row.Rect, 8f, new RectOffset(4, 4, 0, 0));
+            var h = UIFactory.HStack(row.Rect, 4f, new RectOffset(4, 4, 0, 0));
+
+            row.BreakpointDot = UIFactory.Panel(row.Rect, "Bp", new Color(0f, 0f, 0f, 0f), true);
+            UIFactory.Size(row.BreakpointDot.gameObject, minW: 16f, prefW: 16f, flexW: 0f, minH: 16f, prefH: 16f);
 
             row.Number = UIFactory.Text(row.Rect, (index + 1).ToString(), Theme, FontSize - 2f,
                 TextAlignmentOptions.MidlineRight, true);
@@ -227,7 +354,30 @@ namespace CncSim.Runtime.UI
             btn.transition = Selectable.Transition.None;
             btn.onClick.AddListener(() => SelectLine(captured));
 
+            var dotBtn = row.BreakpointDot.gameObject.AddComponent<Button>();
+            dotBtn.transition = Selectable.Transition.None;
+            dotBtn.onClick.AddListener(() => ToggleBreakpoint(captured));
+
             return row;
+        }
+
+        private void ToggleBreakpoint(int line)
+        {
+            var sim = Simulator?.Sim?.Simulation;
+            if (sim == null) return;
+            if (!sim.Breakpoints.Remove(line)) sim.Breakpoints.Add(line);
+            RefreshBreakpoints();
+        }
+
+        private void RefreshBreakpoints()
+        {
+            var bps = Simulator?.Sim?.Simulation?.Breakpoints;
+            foreach (var row in _rows)
+            {
+                if (row.BreakpointDot == null) continue;
+                bool on = bps != null && bps.Contains(row.LineIndex);
+                row.BreakpointDot.color = on ? Theme.Error : new Color(0f, 0f, 0f, 0f);
+            }
         }
 
         private static Color Tint(Color c, float a) => new Color(c.r, c.g, c.b, a);

@@ -62,6 +62,13 @@ namespace CncSim.Core.Simulation
         /// <summary>目标帧率无关的最小时间步，防止大 delta 跳段。</summary>
         public double MaxTimeStep = 0.05;
 
+        /// <summary>断点行集合（0 基行号）。运行到这些行首时自动暂停。</summary>
+        public readonly HashSet<int> Breakpoints = new HashSet<int>();
+        /// <summary>是否启用断点。</summary>
+        public bool BreakpointsEnabled = true;
+        /// <summary>命中断点时触发（参数为行号）。</summary>
+        public event Action<int> BreakpointHit;
+
         public SimulationState State => _state;
         public SimulationFrame Current { get; private set; }
         public double TotalTime { get; private set; }
@@ -233,6 +240,13 @@ namespace CncSim.Core.Simulation
                     var nextSeg = _program.Segments[_segmentIndex];
                     SegmentEntered?.Invoke(nextSeg);
                     _clock = _segmentStartTimes[_segmentIndex];
+                    if (BreakpointsEnabled && Breakpoints.Contains(nextSeg.LineIndex))
+                    {
+                        UpdateFrame();
+                        SetState(SimulationState.Paused);
+                        BreakpointHit?.Invoke(nextSeg.LineIndex);
+                        return;
+                    }
                 }
             }
             UpdateFrame();
