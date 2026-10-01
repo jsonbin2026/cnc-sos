@@ -40,7 +40,7 @@ ProjectSettings/      Unity 工程设置（2022.3.62f1）
 Unity -quit -batchmode -nographics -projectPath . \
   -executeMethod CncSim.EditorTools.BuildAndroid.Build -logFile build.log
 ```
-产物：`Build/Android/CncSim.apk`
+产物：`build/Android/CncSim.apk`
 
 ### 方式三：Unity 编辑器
 `File > Build Settings` → Android → `Build`。构建脚本会自动导入 TextMeshPro Essential Resources。

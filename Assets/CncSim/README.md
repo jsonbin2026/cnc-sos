@@ -248,7 +248,7 @@ Unity -quit -batchmode -nographics -projectPath /path/to/project \
   -executeMethod CncSim.EditorTools.BuildAndroid.Build -logFile build.log
 ```
 
-产物输出到 `Build/Android/CncSim.apk`（CI 中为 `build/Android/CncSim.apk`）。
+产物输出到 `build/Android/CncSim.apk`。
 
 ### 云端构建（无需本地 Unity）
 仓库内置 GitHub Actions（`.github/workflows/android.yml`），使用 `game-ci/unity-builder`：

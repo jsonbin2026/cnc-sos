@@ -12,7 +12,7 @@ namespace CncSim.EditorTools
     ///   Unity -quit -batchmode -nographics -projectPath . \
     ///     -executeMethod CncSim.EditorTools.BuildAndroid.Build \
     ///     -logFile build.log
-    /// 产物默认输出到 Build/Android/CncSim.apk。
+    /// 产物默认输出到 build/Android/CncSim.apk。
     /// </summary>
     public static class BuildAndroid
     {
@@ -80,7 +80,7 @@ namespace CncSim.EditorTools
         {
             EnsureTmpEssentials();
 
-            var outDir = Path.Combine(Directory.GetCurrentDirectory(), "Build", "Android");
+            var outDir = Path.Combine(Directory.GetCurrentDirectory(), "build", "Android");
             Directory.CreateDirectory(outDir);
             var apkPath = Path.Combine(outDir, "CncSim.apk");
 

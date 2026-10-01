@@ -117,7 +117,7 @@ Unity -quit -batchmode -nographics -projectPath . \
   -executeMethod CncSim.EditorTools.BuildAndroid.Build -logFile build.log
 ```
 
-产物固定在 `Build/Android/CncSim.apk`，日志在 `build.log`。
+产物固定在 `build/Android/CncSim.apk`，日志在 `build.log`。
 
 macOS 上 Unity 可执行文件通常在：
 `/Applications/Unity/Hub/Editor/2022.3.62f1/Unity.app/Contents/MacOS/Unity`
@@ -159,5 +159,5 @@ macOS 上 Unity 可执行文件通常在：
 | 脚本后端 | IL2CPP |
 | 目标架构 | ARM64 |
 | 最低 API | 24 |
-| APK 输出 | `Build/Android/CncSim.apk` |
+| APK 输出 | `build/Android/CncSim.apk` |
 | 云构建产物 | Actions Artifacts → `CncSim-Android-APK` |
